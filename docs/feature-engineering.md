@@ -214,9 +214,7 @@ https://www.kaggle.com/learn/feature-engineering
 - gender (one-hot encoded)
 - age_code (standardized)
 - region_code (one-hot encoded)
-- dist_GIT = abs_GIT * equal_dist ("ts", standardized)
-- dist_VAT = abs_VAT * equal_dist ("ts", standardized)
-- entire ("ts", standardized)
-- payday ("t", standardized)
+- b[0-9]+ = rel_b[0-0]+ * triangle_dist ("cts", standardized)
+- entire ("cts", standardized)
 
 ### Result

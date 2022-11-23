@@ -5,12 +5,26 @@ from sklearn.tree import DecisionTreeClassifier
 import matplotlib.pyplot as plt
 import optuna
 from optuna.trial import Trial
-from typing import List, Any
+from typing import List, Any, Tuple
+from sklearn.preprocessing import MinMaxScaler
+
+# Construct date processors
+
+def daterange_between_month(prev_month: int, length: int, prefix: str = "") -> List[str]:
+    dates = []
+    for i in range(length):
+        dates.append(prefix + f"20220{prev_month}{pd.Timestamp(year=2022, month=prev_month, day=1).days_in_month - i}")
+    dates.reverse()
+    for i in range(length):
+        dates.append(prefix + f"20220{prev_month + 1}0{i + 1}")
+    return dates
 
 # Data Loading
 print("Loading data...")
 X_model = pd.read_csv('../data/X_model.csv')
 Y_model = pd.read_csv('../data/Y_model.csv')
+
+scaler = MinMaxScaler(feature_range=(0,1))
 
 # Define preprocessors
 print("Defining preprocessors...")
@@ -22,22 +36,50 @@ def column(colnames: List[str]):
         ]
     return _column
 
-def rangesum(name:str, regex: str, prefixes: str):
+def rangesum(
+    name:str, 
+    regex: str, 
+    prefixes: str, 
+    dist: np.ndarray
+):
     def _rangesum(X: pd.DataFrame):
         X = X.fillna(0)
         return [
             [
                 prefix + name, 
-                np.sum(X.filter(regex=(prefix + regex), axis=1).values, axis=1)
+                X.filter(regex=(prefix + regex), axis=1).values.dot(dist)
             ] for prefix in prefixes
         ]
     return _rangesum
 
-def array_divide(numerator: List[Any], denominator: List[Any]) -> List[Any]:
+def rangesum_from_list(
+    name: str, 
+    namelist: List[str], 
+    prefix: str,
+    dist: np.ndarray,    
+):
+    def _rangesum_from_list(X: pd.DataFrame):
+        X = X.fillna(0)
+        return [
+            [
+                prefix + name, 
+                X[namelist].values.dot(dist)
+            ]
+        ]
+    return _rangesum_from_list
+
+def _fillna(X: np.ndarray) -> np.ndarray:
+    return np.nan_to_num(X, copy=True, nan=0)
+
+def array_divide(
+    numerator: List[Tuple[str, np.ndarray]], 
+    denominator: List[Tuple[str, np.ndarray]]
+) -> List[Any]:
     assert len(numerator) == len(denominator)
     return [
         [
-            "r" + numerator_colname, np.divide(numerator_col, denominator_col)
+            "r" + numerator_colname, 
+            _fillna(np.divide(numerator_col, denominator_col))
         ] for [numerator_colname, numerator_col], [_, denominator_col] in zip(numerator, denominator)
     ]
 
@@ -59,12 +101,68 @@ def preprocess(X: pd.DataFrame, processors: List[Any]) -> pd.DataFrame:
 
     X_new = X_new.fillna(0)
 
+    X_new = pd.DataFrame(scaler.fit_transform(X_new), columns=X_new.columns)
+
     return X_new
 
-print("Data preprocessing...")
-abs_GIT = rangesum('GIT', r"202205[0-9]{2}", "cts")(X_model)
-abs_VAT = rangesum('VAT', r"20220[17](?:[01][0-9]|2[0-5])", "ts")(X_model)
-entire = rangesum('Entire', r"2022[0-9]{4}", "cts")(X_model)
+def equal_dist(length: int) -> np.ndarray:
+    return np.ones(length)
+
+def linear_dist(length: int) -> np.ndarray:
+    return np.arange(start=0, stop=1, step=1/length)
+
+def triangle_dist(length: int) -> np.ndarray:
+    return np.concatenate(
+        [
+            np.arange(start=0, stop=1, step=1/length),
+            np.arange(start=1, stop=0, step=-1/length)
+        ]
+    )
+
+entire_days = 31 + 29 + 31 + 30 + 31 + 30 + 31 + 25
+entire_c = rangesum(
+    'Entire', 
+    r"2022[0-9]{4}", 
+    "c", 
+    equal_dist(entire_days)
+)(X_model)
+entire_t = rangesum(
+    'Entire', 
+    r"2022[0-9]{4}", 
+    "t", 
+    equal_dist(entire_days)
+)(X_model)
+entire_s = rangesum(
+    'Entire', 
+    r"2022[0-9]{4}", 
+    "s", 
+    equal_dist(entire_days)
+)(X_model)
+
+entire = {
+    "c": entire_c,
+    "t": entire_t,
+    "s": entire_s
+}
+
+
+bs = []
+
+bs_weights = [
+    0, # 1-2
+    0.9, # 2-3
+    1.1, # 3-4
+    1, # 4-5
+    3, # 5-6
+    2, # 6-7
+    1.5, # 7-8
+]
+
+for i in range(7):
+    for prefix in ["c", "t", "s"]:
+        bs.append(
+            (X_model[daterange_between_month(i + 1, 3, prefix)] / entire[prefix]).T.dot(triangle_dist(3)) * bs_weights[i]
+        )
 
 X_processed = preprocess(
     X_model, 
@@ -72,11 +170,10 @@ X_processed = preprocess(
         column(['age_code']),
         one_hot_encode('gender'),
         one_hot_encode('region_code'),
-        abs_GIT,
-        abs_VAT,
-        entire,
-        array_divide(abs_GIT, entire), # rel_GIT
-        array_divide(abs_VAT, entire[1:]), # rel_VAT
+        *bs,
+        entire_c,
+        entire_t,
+        entire_s,
     ]
 )
 
