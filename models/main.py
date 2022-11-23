@@ -21,8 +21,8 @@ def daterange_between_month(prev_month: int, length: int, prefix: str = "") -> L
 
 # Data Loading
 print("Loading data...")
-X_model = pd.read_csv('../data/X_model.csv')
-Y_model = pd.read_csv('../data/Y_model.csv')
+X_model = pd.read_csv('data/X_model.csv')
+Y_model = pd.read_csv('data/Y_model.csv')
 
 scaler = MinMaxScaler(feature_range=(0,1))
 
@@ -160,8 +160,14 @@ bs_weights = [
 
 for i in range(7):
     for prefix in ["c", "t", "s"]:
+        numerator = X_model[daterange_between_month(i + 1, 3, prefix)].fillna(0)
+        _, denominator = entire[prefix][0]
+        base = numerator.T / denominator
         bs.append(
-            (X_model[daterange_between_month(i + 1, 3, prefix)] / entire[prefix]).T.dot(triangle_dist(3)) * bs_weights[i]
+            [
+                f"b{prefix}{i + 1}{i + 2}",
+                base.T.dot(triangle_dist(3)) * bs_weights[i]
+            ]
         )
 
 X_processed = preprocess(
@@ -170,7 +176,7 @@ X_processed = preprocess(
         column(['age_code']),
         one_hot_encode('gender'),
         one_hot_encode('region_code'),
-        *bs,
+        bs,
         entire_c,
         entire_t,
         entire_s,

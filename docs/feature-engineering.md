@@ -218,3 +218,11 @@ https://www.kaggle.com/learn/feature-engineering
 - entire ("cts", standardized)
 
 ### Result
+
+- Best params
+```python
+{'splitter': 'best', 'max_depth': 6, 'min_samples_split': 18, 'min_samples_leaf': 4, 'min_weight_fraction_leaf': 0.14825018895203082, 'min_impurity_decrease': 0.0005751470416204517}
+```
+- Average ROC AUC Score 0.8378316987867516
+- Standard Deviation of ROC AUC Score 0.0005985056042549572
+
