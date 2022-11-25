@@ -1,24 +1,11 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score, StratifiedKFold
-from sklearn.tree import DecisionTreeClassifier
-import matplotlib.pyplot as plt
 import optuna
 from optuna.trial import Trial
 from typing import List, Any, Tuple
 from sklearn.preprocessing import MinMaxScaler
 from lightgbm import LGBMClassifier
-
-# Construct date processors
-
-def daterange_between_month(prev_month: int, length: int, prefix: str = "") -> List[str]:
-    dates = []
-    for i in range(length):
-        dates.append(prefix + f"20220{prev_month}{pd.Timestamp(year=2022, month=prev_month, day=1).days_in_month - i}")
-    dates.reverse()
-    for i in range(length):
-        dates.append(prefix + f"20220{prev_month + 1}0{i + 1}")
-    return dates
 
 # Data Loading
 print("Loading data...")
@@ -27,7 +14,7 @@ Y_model = pd.read_csv('data/Y_model.csv')
 
 # Filter outliers by "entire"
 # Ref: https://machinelearningmastery.com/how-to-use-statistics-to-identify-outliers-in-data/
-print("Printing outliers...")
+print("Filtering outliers...")
 df_base = pd.concat([X_model, Y_model], axis=1)
 df_processed = pd.DataFrame(data=df_base, columns=['business'])
 df_processed['cEntire'] = df_base.filter(regex="c" + r"2022[0-9]*", axis=1).fillna(0).sum(axis=1)
@@ -41,15 +28,15 @@ mean_nonbusiness = df_processed[df_processed['business'] == 0].mean()
 std_business = df_processed[df_processed['business'] == 1].std()
 std_nonbusiness = df_processed[df_processed['business'] == 0].std()
 
-def filter_outliers(key):
+def collect_outliers(key):
     outliers.extend(df_processed.loc[(df_processed[key] > mean_business[key] + 3 * std_business[key]) & (df_processed['business'] == 1)].index)
     outliers.extend(df_processed.loc[(df_processed[key] < mean_business[key] - 3 * std_business[key]) & (df_processed['business'] == 1)].index)
     outliers.extend(df_processed.loc[(df_processed[key] > mean_nonbusiness[key] + 3 * std_nonbusiness[key]) & (df_processed['business'] == 0)].index)
     outliers.extend(df_processed.loc[(df_processed[key] < mean_nonbusiness[key] - 3 * std_nonbusiness[key]) & (df_processed['business'] == 0)].index)
 
-filter_outliers('cEntire')
-filter_outliers('tEntire')
-filter_outliers('sEntire')
+collect_outliers('cEntire')
+collect_outliers('tEntire')
+collect_outliers('sEntire')
 
 outliers = list(set(outliers))
 
@@ -61,6 +48,7 @@ X_model = filter_outliers_from_df(X_model, outliers)
 Y_model = filter_outliers_from_df(Y_model, outliers)
 
 # Define scaler
+print("Defining scaler...")
 scaler = MinMaxScaler(feature_range=(0,1))
 
 # Define preprocessors
@@ -156,6 +144,17 @@ def triangle_dist(length: int) -> np.ndarray:
         ]
     )
 
+# Construct date processors
+def daterange_between_month(prev_month: int, length: int, prefix: str = "") -> List[str]:
+    dates = []
+    for i in range(length):
+        dates.append(prefix + f"20220{prev_month}{pd.Timestamp(year=2022, month=prev_month, day=1).days_in_month - i}")
+    dates.reverse()
+    for i in range(length):
+        dates.append(prefix + f"20220{prev_month + 1}0{i + 1}")
+    return dates
+
+print("Data preprocessing...")
 entire_days = 31 + 29 + 31 + 30 + 31 + 30 + 31 + 25
 entire_c = rangesum(
     'Entire', 
@@ -315,3 +314,20 @@ scores = _construct_and_cross_validate(
 
 print("Average ROC AUC Score", np.mean(scores))
 print("Standard Deviation of ROC AUC Score", np.std(scores))
+
+"""
+## Trial 11
+
+### Included
+
+Same as Trial 10. But used LGBM.
+
+### Result
+
+- Best params
+```python
+{'n_estimators': 127, 'max_depth': 11, 'learning_rate': 0.03178782439774268, 'num_leaves': 555, 'min_data_in_leaf': 216, 'max_bin': 338, 'lambda_l1': 0.03193633496303601, 'lambda_l2': 0.7759951111876493, 'min_child_weight': 6, 'bagging_fraction': 0.2642872551619603, 'pos_bagging_fraction': 0.7331443462867194, 'neg_bagging_fraction': 0.48314405761757573}
+```
+- Average ROC AUC Score 0.8615170495612592
+- Standard Deviation of ROC AUC Score 0.0006766505564950517
+"""

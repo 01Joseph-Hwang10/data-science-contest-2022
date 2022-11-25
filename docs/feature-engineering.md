@@ -230,7 +230,7 @@ https://www.kaggle.com/learn/feature-engineering
 
 ### Included
 
-Everything in `Trial 9`. But not included with bs_weight == 0 and filtered outliers.
+Everything in `Trial 9`. But not included with bs_weight == 0 and filtered outliers. Outliers were filtered with "standard deviation method".
 
 ### Result
 
@@ -255,4 +255,3 @@ Same as 10. But used LGBM.
 ```
 - Average ROC AUC Score 0.8615170495612592
 - Standard Deviation of ROC AUC Score 0.0006766505564950517
-
