@@ -7,6 +7,7 @@ import optuna
 from optuna.trial import Trial
 from typing import List, Any, Tuple
 from sklearn.preprocessing import MinMaxScaler
+from lightgbm import LGBMClassifier
 
 # Construct date processors
 
@@ -223,45 +224,70 @@ X_processed = preprocess(
 
 print("Preparing for hyperparameter tuning...")
 def _construct_and_cross_validate(**kwargs):
-    classifier = DecisionTreeClassifier(
-        criterion="gini",
-        splitter=kwargs['splitter'],
-        max_depth=kwargs['max_depth'],
-        min_samples_split=kwargs['min_samples_split'],
-        min_samples_leaf=kwargs['min_samples_leaf'],
-        min_weight_fraction_leaf=kwargs['min_weight_fraction_leaf'],
+
+    lgbm = LGBMClassifier(
+        task = "train",
+        objective = "binary", #cross-entropy
+        metric = "auc",
+        tree_learner = "data",
         random_state=100,
-        min_impurity_decrease=kwargs['min_impurity_decrease'],
-        class_weight={0: 1, 1: 14.291397}, # Super imbalanced data
+        categorical_feature = [0,1,2],
+        class_weight={0: 1, 1: 14.291397},
+        n_estimators=kwargs['n_estimators'],
+        # to deal with overfitting, very important param
+        max_depth=kwargs['max_depth'],
+        learning_rate=kwargs['learning_rate'],
+        num_leaves=kwargs['num_leaves'],
+        min_data_in_leaf=kwargs['min_data_in_leaf'],
+        #if max_bin becomes small, the accuracy goes up
+        max_bin=kwargs['max_bin'],
+        lambda_l1=kwargs['lambda_l1'],
+        lambda_l2=kwargs['lambda_l2'],
+        # to deal with overfitting
+        min_child_weight=kwargs['min_child_weight'],
+        #for bagging imbalanced
+        bagging_fraction=kwargs['bagging_fraction'],
+        pos_bagging_fraction=kwargs['pos_bagging_fraction'],
+        neg_bagging_fraction=kwargs['neg_bagging_fraction'],
     )
-
+    #cross validation K=5
     scores = cross_val_score(
-        classifier,
-        X_processed,
-        Y_model,
-        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=100),
-        scoring='roc_auc' # for binary classification
+        lgbm, 
+        X_processed, 
+        Y_model, 
+        cv=StratifiedKFold(n_splits=5, shuffle=True),
+        scoring="roc_auc"
     )
-
     return scores
 
 # Task: Hyperparameter tuning with Optuna
 def objective(trial: Trial):
     # Construct a DecisionTreeClassifier object
     scores = _construct_and_cross_validate(
-        splitter=trial.suggest_categorical('splitter', ['best', 'random']),
-        max_depth=trial.suggest_int('max_depth', 1, 10),
-        min_samples_split=trial.suggest_int('min_samples_split', 2, 40),
-        min_samples_leaf=trial.suggest_int('min_samples_leaf', 1, 20),
-        min_weight_fraction_leaf=trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5),
-        min_impurity_decrease=trial.suggest_float('min_impurity_decrease', 0.0, 0.5),
+        n_estimators=trial.suggest_int('n_estimators',100,500),
+        # to deal with overfitting, very important param
+        max_depth = trial.suggest_int('max_depth',10,20),
+        learning_rate = trial.suggest_float('learning_rate',0.02,0.1),
+        num_leaves = trial.suggest_int('num_leaves',500,1000),
+        min_data_in_leaf = trial.suggest_int('min_data_in_leaf',100,1000),
+        #if max_bin becomes small, the accuracy goes up
+        max_bin = trial.suggest_int('max_bin',255,350),
+        lambda_l1 = trial.suggest_loguniform('lambda_l1', 1e-3, 10.0),
+        lambda_l2 = trial.suggest_loguniform('lambda_l2', 1e-3, 10.0),
+        # to deal with overfitting
+        min_child_weight = trial.suggest_int('min_child_weight', 1, 10),
+        #for bagging imbalanced
+        bagging_fraction = trial.suggest_float('bagging_fraction', 0,1),
+        pos_bagging_fraction = trial.suggest_float('pos_bagging_fraction', 0,1),
+        neg_bagging_fraction = trial.suggest_float('neg_bagging_fraction', 0,1),
     )
 
     return scores.mean()
 
 print("Hyperparameter tuning started...")
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 study = optuna.create_study(direction="maximize")
-study.optimize(objective, n_trials=100)
+study.optimize(objective, n_trials=10)
 
 # Print the best parameters
 print("Best params")
@@ -269,12 +295,22 @@ print(study.best_params)
 
 print("Finalizing model...")
 scores = _construct_and_cross_validate(
-    splitter=study.best_params['splitter'],
+    n_estimators=study.best_params['n_estimators'],
+    # to deal with overfitting, very important param
     max_depth=study.best_params['max_depth'],
-    min_samples_split=study.best_params['min_samples_split'],
-    min_samples_leaf=study.best_params['min_samples_leaf'],
-    min_weight_fraction_leaf=study.best_params['min_weight_fraction_leaf'],
-    min_impurity_decrease=study.best_params['min_impurity_decrease'],
+    learning_rate=study.best_params['learning_rate'],
+    num_leaves=study.best_params['num_leaves'],
+    min_data_in_leaf=study.best_params['min_data_in_leaf'],
+    #if max_bin becomes small, the accuracy goes up
+    max_bin=study.best_params['max_bin'],
+    lambda_l1=study.best_params['lambda_l1'],
+    lambda_l2=study.best_params['lambda_l2'],
+    # to deal with overfitting
+    min_child_weight=study.best_params['min_child_weight'],
+    #for bagging imbalanced
+    bagging_fraction=study.best_params['bagging_fraction'],
+    pos_bagging_fraction=study.best_params['pos_bagging_fraction'],
+    neg_bagging_fraction=study.best_params['neg_bagging_fraction'],
 )
 
 print("Average ROC AUC Score", np.mean(scores))

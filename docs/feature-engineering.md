@@ -226,3 +226,33 @@ https://www.kaggle.com/learn/feature-engineering
 - Average ROC AUC Score 0.8378316987867516
 - Standard Deviation of ROC AUC Score 0.0005985056042549572
 
+## Trial 10
+
+### Included
+
+Everything in `Trial 9`. But not included with bs_weight == 0 and filtered outliers.
+
+### Result
+
+- Best params
+```python
+{'splitter': 'best', 'max_depth': 4, 'min_samples_split': 20, 'min_samples_leaf': 17, 'min_weight_fraction_leaf': 0.10575221612759156, 'min_impurity_decrease': 0.002060358676245132}
+```
+- Average ROC AUC Score 0.8508243895942819
+- Standard Deviation of ROC AUC Score 0.0016031942200530596
+
+## Trial 11
+
+### Included
+
+Same as 10. But used LGBM.
+
+### Result
+
+- Best params
+```python
+{'n_estimators': 127, 'max_depth': 11, 'learning_rate': 0.03178782439774268, 'num_leaves': 555, 'min_data_in_leaf': 216, 'max_bin': 338, 'lambda_l1': 0.03193633496303601, 'lambda_l2': 0.7759951111876493, 'min_child_weight': 6, 'bagging_fraction': 0.2642872551619603, 'pos_bagging_fraction': 0.7331443462867194, 'neg_bagging_fraction': 0.48314405761757573}
+```
+- Average ROC AUC Score 0.8615170495612592
+- Standard Deviation of ROC AUC Score 0.0006766505564950517
+
