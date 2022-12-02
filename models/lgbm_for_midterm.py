@@ -30,7 +30,7 @@ def collect_outliers(business: int, key: str):
     cutoff = iqr * 1.5
     lower, upper = q1 - cutoff, q3 + cutoff
     _outliers = df_target[(df_target[key] < lower) | (df_target[key] > upper)].index.tolist()
-    print(len(_outliers))
+    # print(len(_outliers))
     outliers.extend(_outliers)
 
 collect_outliers(0, 'cEntire')
@@ -48,6 +48,21 @@ def filter_outliers_from_df(df: pd.DataFrame, outliers):
 
 X_model = filter_outliers_from_df(X_model, outliers)
 Y_model = filter_outliers_from_df(Y_model, outliers)
+
+# Get columns of "c" prefix of last 5 days of month
+last_5_days = [
+    *[f"c202201{i + 27}" for i in range(5)],
+    *[f"c202202{i + 24}" for i in range(5)],
+    *[f"c202203{i + 27}" for i in range(5)],
+    *[f"c202204{i + 26}" for i in range(5)],
+    *[f"c202205{i + 27}" for i in range(5)],
+    *[f"c202206{i + 26}" for i in range(5)],
+    *[f"c202207{i + 27}" for i in range(5)],
+]
+last_5_days_sum = X_model.filter(last_5_days, axis=1).fillna(0).sum(axis=1)
+# print(last_5_days_sum.head())
+last_5_days_sum = last_5_days_sum.sort_values(ascending=False)
+# print(last_5_days_sum.index)
 
 # Define scaler
 print("Defining scaler...")
