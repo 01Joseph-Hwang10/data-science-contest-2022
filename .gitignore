@@ -10,3 +10,5 @@ __pycache__
 
 # Data
 data/*.csv
+data/*.npy
+data/*.pkl
