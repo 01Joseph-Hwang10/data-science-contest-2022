@@ -12,3 +12,4 @@ __pycache__
 data/*.csv
 data/*.npy
 data/*.pkl
+data/*.zip
