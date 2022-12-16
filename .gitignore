@@ -9,7 +9,5 @@ __pycache__
 *.pyc
 
 # Data
-data/*.csv
-data/*.npy
-data/*.pkl
-data/*.zip
+data/*
+!data/README.md
